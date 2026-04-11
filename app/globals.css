@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-dark text-white font-arabic;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Scrollbar styles to match the mobile-first logic */
+::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
