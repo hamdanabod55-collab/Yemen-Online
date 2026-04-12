@@ -8,7 +8,7 @@ export default function BottomNav() {
 
   const tabs = [
     { id: '/', icon: Home, label: 'الرئيسية' },
-    { id: '#', icon: MessageCircle, label: 'الرسائل' },
+    { id: '/notifications', icon: MessageCircle, label: 'الرسائل' },
     { id: '/cart', icon: ShoppingBag, label: 'السلة' },
     { id: '/merchant', icon: User, label: 'لوحة التحكم' },
   ];
@@ -23,6 +23,7 @@ export default function BottomNav() {
             <Link
               key={tab.id}
               href={tab.id}
+              prefetch={false}
               className="flex flex-col items-center justify-center space-y-1"
             >
               <div className={`p-1.5 rounded-full transition-all duration-300 ${isActive ? 'text-primary' : 'text-gray-400 hover:text-white'}`}>
