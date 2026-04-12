@@ -21,13 +21,19 @@ export default function ManageProductsPage() {
     
     if (user) {
       // RLS naturally restricts to the merchant's items, but we explicitly filter anyway for safety.
-      const { data, error } = await supabase.from('products').select('*').eq('merchant_id', user.id);
-      
-      // Mock data injection since RLS requires DB Setup
-      setProducts(data || [
-        { id: 1, name: 'روتي يمني طازج', price: 2, image: 'https://images.unsplash.com/photo-1598373182133-52452f7691ef?auto=format&fit=crop&w=150&q=80' },
-        { id: 2, name: 'كيكة العسل', price: 15, image: 'https://images.unsplash.com/photo-1621303837174-89787a7d4729?auto=format&fit=crop&w=150&q=80' }
-      ]);
+      // Ensuring it queries securely mapped ID.
+      const { data: merchant, error: merchantError } = await supabase
+        .from('merchants')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (merchant) {
+        const { data, error } = await supabase.from('products').select('*').eq('merchant_id', merchant.id);
+        setProducts(data || []);
+      } else {
+        setProducts([]); // No fake data fallback
+      }
     }
     setLoading(false);
   };
