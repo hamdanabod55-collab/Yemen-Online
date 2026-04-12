@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { MapPin, User, Package, Save, Loader2, LogOut } from 'lucide-react';
+import { MapPin, User, Package, Save, Loader2, LogOut,Mail } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
