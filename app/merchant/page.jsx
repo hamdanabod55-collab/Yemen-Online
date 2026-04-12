@@ -14,16 +14,17 @@ export default function MerchantDashboard() {
   const supabase = createClient();
   const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [merchantObj, setMerchantObj] = useState(null);
 
   React.useEffect(() => {
     const fetchStats = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Enforce Merchant_ID constraint securely mapping user.id -> merchant.id
-        const { data: merchant } = await supabase.from('merchants').select('id').eq('user_id', user.id).single();
+        const { data: merchant } = await supabase.from('merchants').select('*').eq('user_id', user.id).single();
         
         let ordersData = null;
         if (merchant) {
+          setMerchantObj(merchant);
           const { data, error } = await supabase.from('orders').select('*').eq('merchant_id', merchant.id).order('created_at', { ascending: false }).limit(10);
           ordersData = data || [];
         } else {
@@ -41,15 +42,35 @@ export default function MerchantDashboard() {
   return (
     <div className="p-4 space-y-6 pb-20">
       {/* Merchant Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-white/5 pt-2">
+      <div className="flex items-center justify-between pb-4 pt-2">
         <div>
           <h2 className="text-xl font-bold text-white">لوحة التحكم التاجر</h2>
-          <p className="text-xs text-gray-400 mt-1">مرحباً بك في لوحة تحكم التاجر</p>
+          <p className="text-xs text-gray-400 mt-1">مرحباً بك، {merchantObj?.store_name || 'في لوحة تحكم التاجر'}</p>
         </div>
         <div className="p-2 bg-dark-elevated rounded-xl border border-white/5">
           <Settings size={20} className="text-gray-400" />
         </div>
       </div>
+      
+      {/* Store URL Display */}
+      {merchantObj && (
+        <div className="bg-primary/10 border border-primary/20 p-3 rounded-xl flex justify-between items-center mb-4">
+          <div className="truncate flex-1" dir="ltr">
+            <span className="text-xs text-primary font-mono block truncate">
+              {typeof window !== 'undefined' ? window.location.origin : 'https://yemen-online.com'}/store/{merchantObj.id}
+            </span>
+          </div>
+          <button 
+            onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/store/${merchantObj.id}`);
+              alert('تم نسخ رابط المتجر!');
+            }}
+            className="text-xs bg-primary text-white font-bold px-3 py-1.5 rounded-lg ml-2"
+          >
+            نسخ الرابط
+          </button>
+        </div>
+      )}
 
       {/* Analytics Summary */}
       <div className="grid grid-cols-2 gap-3">
