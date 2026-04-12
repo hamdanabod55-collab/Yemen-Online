@@ -25,18 +25,13 @@ export default function MerchantDashboard() {
         let ordersData = null;
         if (merchant) {
           const { data, error } = await supabase.from('orders').select('*').eq('merchant_id', merchant.id).order('created_at', { ascending: false }).limit(10);
-          ordersData = data;
+          ordersData = data || [];
+        } else {
+          // Strict block on client: no fake data ever
+          ordersData = [];
         }
 
-        if (ordersData) {
-          setRecentOrders(ordersData);
-        } else {
-           // Fallback to mock data if RLS or schema is not fully migrated
-           setRecentOrders([
-            { id: 'ORD-7742', customer: 'أحمد صالح', items: 'روتي فائر، كيكة العسل', total: '$17.00', status: 'معلق', time: 'منذ 5 د' },
-            { id: 'ORD-7741', customer: 'خالد يحيى', items: 'لابتوب ديل', total: '$1200.00', status: 'مكتمل', time: 'منذ 1 س' }
-          ]);
-        }
+        setRecentOrders(ordersData);
       }
       setLoading(false);
     };
@@ -49,7 +44,7 @@ export default function MerchantDashboard() {
       <div className="flex items-center justify-between pb-4 border-b border-white/5 pt-2">
         <div>
           <h2 className="text-xl font-bold text-white">لوحة التحكم التاجر</h2>
-          <p className="text-xs text-gray-400 mt-1">مرحباً بك، مخبز الأمانة (خطة Pro)</p>
+          <p className="text-xs text-gray-400 mt-1">مرحباً بك في لوحة تحكم التاجر</p>
         </div>
         <div className="p-2 bg-dark-elevated rounded-xl border border-white/5">
           <Settings size={20} className="text-gray-400" />
