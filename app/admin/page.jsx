@@ -11,6 +11,18 @@ export default function AdminDashboard() {
   ]);
 
   const [isCreating, setIsCreating] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  
+  // Controlled Inputs
+  const [formData, setFormData] = useState({
+    storeName: '',
+    email: '',
+    password: '',
+    tier: 'basic',
+    months: 1
+  });
 
   const toggleStatus = (id) => {
     setStores(stores.map(s => {
@@ -19,6 +31,44 @@ export default function AdminDashboard() {
       }
       return s;
     }));
+  };
+
+  const handleCreateStore = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    try {
+      const res = await fetch('/api/admin/store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          store_name: formData.storeName,
+          email: formData.email,
+          password: formData.password,
+          tier: formData.tier === 'اشتراك Basic' ? 'basic' : formData.tier === 'اشتراك Pro' ? 'pro' : 'basic', 
+          months: parseInt(formData.months) || 1
+        })
+      });
+
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setSuccessMsg(data.message);
+        // Reset form on success
+        setFormData({ storeName: '', email: '', password: '', tier: 'basic', months: 1 });
+        setIsCreating(false);
+        // Optionally fetch stores here if we were querying dynamically
+      } else {
+        setErrorMsg(data.error || 'فشل في إنشاء المتجر');
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('مشكلة في الاتصال بالشبكة');
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -65,27 +115,84 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      {/* Add Store Form Mock */}
+      {/* Add Store Form */}
       {isCreating && (
-        <div className="bg-dark-surface p-4 rounded-2xl border border-primary/20 space-y-3">
+        <form onSubmit={handleCreateStore} className="bg-dark-surface p-4 rounded-2xl border border-primary/20 space-y-3">
           <h3 className="text-sm font-bold text-white mb-2">بيانات التاجر الجديد</h3>
-          <input type="text" placeholder="اسم المتجر" className="w-full bg-dark-elevated text-sm text-white rounded-lg py-2.5 px-3 outline-none border border-white/5 focus:border-primary" />
+          
+          {errorMsg && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-2 rounded-lg text-xs font-bold text-center">
+              {errorMsg}
+            </div>
+          )}
+          {successMsg && (
+            <div className="bg-green-500/10 border border-green-500/20 text-green-500 p-2 rounded-lg text-xs font-bold text-center">
+              {successMsg}
+            </div>
+          )}
+
+          <input 
+            type="text" 
+            required
+            value={formData.storeName}
+            onChange={(e) => setFormData({...formData, storeName: e.target.value})}
+            placeholder="اسم المتجر" 
+            className="w-full bg-dark-elevated text-sm text-white rounded-lg py-2.5 px-3 outline-none border border-white/5 focus:border-primary disabled:opacity-50" 
+            disabled={loading}
+          />
           <div className="grid grid-cols-2 gap-2">
-            <input type="text" placeholder="اسم المستخدم (للدخول)" className="w-full bg-dark-elevated text-sm text-white rounded-lg py-2.5 px-3 outline-none border border-white/5 focus:border-primary" />
-            <input type="password" placeholder="كلمة السر" className="w-full bg-dark-elevated text-sm text-white rounded-lg py-2.5 px-3 outline-none border border-white/5 focus:border-primary" />
+            <input 
+              type="email" 
+              required
+              value={formData.email}
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              placeholder="البريد الإلكتروني للتاجر" 
+              className="w-full bg-dark-elevated text-sm text-white rounded-lg py-2.5 px-3 outline-none border border-white/5 focus:border-primary disabled:opacity-50 text-left" 
+              dir="ltr"
+              disabled={loading}
+            />
+            <input 
+              type="password" 
+              required
+              minLength={6}
+              value={formData.password}
+              onChange={(e) => setFormData({...formData, password: e.target.value})}
+              placeholder="كلمة السر (6+ أحرف)" 
+              className="w-full bg-dark-elevated text-sm text-white rounded-lg py-2.5 px-3 outline-none border border-white/5 focus:border-primary disabled:opacity-50 text-left" 
+              dir="ltr"
+              disabled={loading}
+            />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <select className="w-full bg-dark-elevated text-sm text-white rounded-lg py-2.5 px-3 outline-none border border-white/5 focus:border-primary appearance-none">
-              <option>اشتراك Basic</option>
-              <option>اشتراك Pro</option>
-              <option>اشتراك Premium</option>
+            <select 
+              value={formData.tier}
+              onChange={(e) => setFormData({...formData, tier: e.target.value})}
+              className="w-full bg-dark-elevated text-sm text-white rounded-lg py-2.5 px-3 outline-none border border-white/5 focus:border-primary appearance-none disabled:opacity-50"
+              disabled={loading}
+            >
+              <option value="basic">اشتراك Basic</option>
+              <option value="pro">اشتراك Pro</option>
+              <option value="enterprise">اشتراك Premium</option>
             </select>
-            <input type="number" placeholder="مدة الاشتراك (أشهر)" className="w-full bg-dark-elevated text-sm text-white rounded-lg py-2.5 px-3 outline-none border border-white/5 focus:border-primary" />
+            <input 
+              type="number" 
+              required
+              min={1}
+              value={formData.months}
+              onChange={(e) => setFormData({...formData, months: parseInt(e.target.value)})}
+              placeholder="مدة الاشتراك (أشهر)" 
+              className="w-full bg-dark-elevated text-sm text-white rounded-lg py-2.5 px-3 outline-none border border-white/5 focus:border-primary disabled:opacity-50" 
+              disabled={loading}
+            />
           </div>
-          <button className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-lg text-sm mt-2">
-            حفظ وإنشاء لوحة تحكم التاجر
+          <button 
+            type="submit"
+            disabled={loading}
+            className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-lg text-sm mt-2 flex justify-center items-center disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? 'جاري الإنشاء والتحقق...' : 'حفظ وإنشاء لوحة تحكم التاجر'}
           </button>
-        </div>
+        </form>
       )}
 
       {/* Stores Directory */}
