@@ -17,8 +17,8 @@ export default function MerchantSettingsPage() {
     const fetchStoreProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Fetch current store profile
-        const { data } = await supabase.from('stores').select('*').eq('owner_id', user.id).single();
+        // Fetch current store profile from 'merchants' table
+        const { data } = await supabase.from('merchants').select('*').eq('user_id', user.id).single();
         if (data) {
           setStoreName(data.store_name || '');
           setDesc(data.description || '');
@@ -35,16 +35,19 @@ export default function MerchantSettingsPage() {
     setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
-    
     if (user) {
-      await supabase.from('stores').upsert({
-        owner_id: user.id, // Upserts based on owner (RLS policy check)
+      const { error } = await supabase.from('merchants').update({
         store_name: storeName,
         description: desc,
         whatsapp_number: waNumber,
         banner_url: banner
-      });
-      alert('تم حفظ إعدادات المتجر!');
+      }).eq('user_id', user.id);
+      
+      if (error) {
+        alert('حدث خطأ أثناء الحفظ');
+      } else {
+        alert('تم حفظ إعدادات المتجر!');
+      }
     }
     
     setLoading(false);
