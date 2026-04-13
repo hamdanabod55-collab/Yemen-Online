@@ -103,10 +103,13 @@ export async function POST(request) {
       // Step C: Insert into `merchants` table
       const subscriptionEnd = new Date();
       subscriptionEnd.setMonth(subscriptionEnd.getMonth() + months);
+      
+      const generatedSlug = 'store-' + Math.random().toString(36).slice(2, 10);
 
       const { data: merchantData, error: merchantError } = await adminSupabase.from('merchants').insert({
         user_id: newAuthUserId,
         store_name: store_name,
+        slug: generatedSlug,
         whatsapp_number: '', // Can be completed by merchant later
         status: 'active',
         subscription_start: new Date().toISOString(),
