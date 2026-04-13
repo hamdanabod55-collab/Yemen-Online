@@ -44,7 +44,7 @@ export default function StoreProfile({ params }) {
         const { data: productsData } = await supabase
           .from('products')
           .select('*')
-          .eq('merchant_id', id);
+          .eq('merchant_id', merchantData.id);
 
         if (productsData) {
           const formattedProducts = productsData.map(p => ({
