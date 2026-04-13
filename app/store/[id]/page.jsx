@@ -4,25 +4,71 @@ import { Share2, Heart, ShieldCheck, MessageCircle, Star, Info } from 'lucide-re
 import Link from 'next/link';
 import { useCart } from '@/components/CartContext';
 import { getCurrencyDisplays } from '@/lib/currency';
+import { createClient } from '@/lib/supabase/client';
 
 export default function StoreProfile({ params }) {
-  // In reality, this will fetch from Supabase: `const { id } = params; const pb = await db.from('stores').eq('id', id)`
-  const store = {
-    name: 'مخبز الأمانة',
-    category: 'مخبوزات مميزة وحلويات يمنية',
-    verified: true,
-    rating: 4.8,
-    reviews: 240,
-    phone: '+967733000000',
-    cover: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80',
-    products: [
-      { id: 1, name: 'روتي يمني طازج', desc: 'ربطة 5 حبات من الروتي الفاخر', price: 2, image: 'https://images.unsplash.com/photo-1598373182133-52452f7691ef?auto=format&fit=crop&w=300&q=80' },
-      { id: 2, name: 'كيكة العسل', desc: 'قطعة غنية بالكريمة والعسل الطبيعي', price: 15, image: 'https://images.unsplash.com/photo-1621303837174-89787a7d4729?auto=format&fit=crop&w=300&q=80' },
-      { id: 3, name: 'بيتزا وسط', desc: 'عجينة رقيقة مع جبن الموزاريلا والزيتون', price: 20, image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=300&q=80' }
-    ]
-  };
-
+  const { id } = params;
+  const [store, setStore] = React.useState(null);
+  const [products, setProducts] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  
+  const supabase = createClient();
   const { addToCart } = useCart();
+
+  React.useEffect(() => {
+    const fetchStoreData = async () => {
+      setLoading(true);
+      // Fetch Merchant (Store)
+      const { data: merchantData } = await supabase
+        .from('merchants')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (merchantData) {
+        setStore({
+          id: merchantData.id,
+          name: merchantData.store_name,
+          category: merchantData.description || 'متجر مسجل',
+          verified: merchantData.status === 'active',
+          rating: 4.8, // Static aesthetics
+          reviews: 120, // Static aesthetics
+          phone: merchantData.whatsapp_number || '',
+          cover: merchantData.banner_url || 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80',
+        });
+
+        // Fetch Products for this Merchant
+        const { data: productsData } = await supabase
+          .from('products')
+          .select('*')
+          .eq('merchant_id', id);
+
+        if (productsData) {
+          const formattedProducts = productsData.map(p => ({
+            id: p.id,
+            name: p.name,
+            desc: p.description || '',
+            price: p.price_usd,
+            image: p.image_url || 'https://images.unsplash.com/photo-1598373182133-52452f7691ef?auto=format&fit=crop&w=300&q=80'
+          }));
+          setProducts(formattedProducts);
+        }
+      }
+      setLoading(false);
+    };
+
+    if (id) {
+      fetchStoreData();
+    }
+  }, [id, supabase]);
+
+  if (loading) {
+    return <div className="p-10 text-center text-white">جاري تحميل باقة المتجر...</div>;
+  }
+
+  if (!store) {
+    return <div className="p-10 text-center text-white">عذراً، هذا المتجر غير متاح أو تم إيقافه.</div>;
+  }
 
   return (
     <div className="pb-10">
@@ -90,7 +136,7 @@ export default function StoreProfile({ params }) {
         </div>
         
         <div className="grid grid-cols-2 gap-3">
-          {store.products.map((item) => {
+          {products.map((item) => {
             const currencyStr = getCurrencyDisplays(item.price);
             return (
             <div key={item.id} className="bg-dark-surface rounded-2xl p-2 border border-white/5 flex flex-col">
