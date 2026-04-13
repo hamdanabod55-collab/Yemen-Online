@@ -2,15 +2,47 @@
 import React, { useState } from 'react';
 import { ShieldAlert, Store, UserPlus, Power, Calendar, ShieldCheck, Eye, Search } from 'lucide-react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 
 export default function AdminDashboard() {
-  // DB Mock for Admin Dashboard (Yemen Online - Master Control)
-  const [stores, setStores] = useState([
-    { id: 'S-1', name: 'مخبز الأمانة', owner: 'ali_bakery', status: 'Active', subEnd: '2026-12-01', tier: 'Premium' },
-    { id: 'S-2', name: 'إلكترونيات التقنية', owner: 'tech_admin1', status: 'Inactive', subEnd: '2026-04-01', tier: 'Pro' },
-  ]);
-
+  const [stores, setStores] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+  
+  const supabase = createClient();
+
+  React.useEffect(() => {
+    fetchStores();
+  }, []);
+
+  const fetchStores = async () => {
+    setPageLoading(true);
+    // Fetch merchants and join user email if possible, else just fetch merchants
+    const { data, error } = await supabase
+      .from('merchants')
+      .select(`
+        id,
+        store_name,
+        status,
+        subscription_end,
+        user_id,
+        users ( email )
+      `);
+      
+    if (data) {
+      const formatted = data.map(m => ({
+        id: m.id,
+        name: m.store_name,
+        owner: m.users?.email || 'N/A',
+        status: m.status === 'active' ? 'Active' : 'Inactive',
+        subEnd: m.subscription_end ? new Date(m.subscription_end).toISOString().split('T')[0] : 'N/A',
+        tier: 'Basic'
+      }));
+      setStores(formatted);
+    }
+    setPageLoading(false);
+  };
+
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -24,13 +56,22 @@ export default function AdminDashboard() {
     months: 1
   });
 
-  const toggleStatus = (id) => {
-    setStores(stores.map(s => {
-      if (s.id === id) {
-        return { ...s, status: s.status === 'Active' ? 'Inactive' : 'Active' };
-      }
-      return s;
-    }));
+  const toggleStatus = async (id) => {
+    const store = stores.find(s => s.id === id);
+    if (!store) return;
+    
+    const newStatus = store.status === 'Active' ? 'suspended' : 'active';
+    
+    const { error } = await supabase
+      .from('merchants')
+      .update({ status: newStatus })
+      .eq('id', id);
+
+    if (!error) {
+      fetchStores(); // Refresh securely
+    } else {
+      alert('Failed to update status');
+    }
   };
 
   const handleCreateStore = async (e) => {
@@ -59,7 +100,7 @@ export default function AdminDashboard() {
         // Reset form on success
         setFormData({ storeName: '', email: '', password: '', tier: 'basic', months: 1 });
         setIsCreating(false);
-        // Optionally fetch stores here if we were querying dynamically
+        fetchStores(); // Automatically pull the new store
       } else {
         setErrorMsg(data.error || 'فشل في إنشاء المتجر');
       }
@@ -93,7 +134,9 @@ export default function AdminDashboard() {
             <span className="text-xs text-gray-400 font-medium">المتاجر النشطة</span>
             <Store size={16} className="text-green-400" />
           </div>
-          <h3 className="font-bold text-2xl text-white">24</h3>
+          <h3 className="font-bold text-2xl text-white">
+            {pageLoading ? '...' : stores.filter(s => s.status === 'Active').length}
+          </h3>
         </div>
         <div className="p-4 rounded-2xl bg-dark-surface border border-white/5">
           <div className="flex justify-between items-center mb-2">
