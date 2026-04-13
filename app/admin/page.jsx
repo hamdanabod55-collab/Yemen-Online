@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 
 export default function AdminDashboard() {
   const [stores, setStores] = useState([]);
+  const [revenue, setRevenue] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   
@@ -42,6 +43,19 @@ export default function AdminDashboard() {
       }));
       setStores(formatted);
     }
+    
+    // Process Revenue Logically based on Subscriptions
+    const { data: subsData } = await supabase.from('subscriptions').select('plan').eq('status', 'active');
+    if (subsData) {
+       let tr = 0;
+       subsData.forEach(s => {
+          if (s.plan === 'pro') tr += 49;
+          else if (s.plan === 'enterprise') tr += 99;
+          else tr += 15; // basic fallback
+       });
+       setRevenue(tr);
+    }
+    
     setPageLoading(false);
   };
 
@@ -145,7 +159,7 @@ export default function AdminDashboard() {
             <span className="text-xs text-gray-400 font-medium">اشتراكات الشهر</span>
             <Calendar size={16} className="text-secondary" />
           </div>
-          <h3 className="font-bold text-2xl text-white">$450</h3>
+          <h3 className="font-bold text-2xl text-white">${pageLoading ? '...' : revenue.toFixed(2)}</h3>
         </div>
       </div>
 
