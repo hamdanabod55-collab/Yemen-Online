@@ -1,9 +1,32 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Save, Store, Phone, ArrowRight, Image as ImageIcon } from 'lucide-react';
+import { Save, Store, Phone, ArrowRight, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+
+const compressImage = async (file) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200; // Banners are wider
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.6); // 60% compression
+      };
+    };
+  });
+};
 
 export default function MerchantSettingsPage() {
   const router = useRouter();
@@ -11,6 +34,7 @@ export default function MerchantSettingsPage() {
   const [desc, setDesc] = useState('');
   const [waNumber, setWaNumber] = useState('');
   const [banner, setBanner] = useState('');
+  const [bannerFile, setBannerFile] = useState(null);
   const [loading, setLoading] = useState(false);
   
   const supabase = createClient();
@@ -38,11 +62,26 @@ export default function MerchantSettingsPage() {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      // 1. Upload Banner Image if Provided
+      let finalBannerUrl = banner;
+      if (bannerFile) {
+        const compressed = await compressImage(bannerFile);
+        const fileExt = compressed.name.split('.').pop() || 'jpg';
+        const fileName = `banner_${user.id}_${Date.now()}.${fileExt}`;
+        
+        const { error: upErr } = await supabase.storage.from('product_images').upload(fileName, compressed);
+        if (!upErr) {
+          const { data: pubData } = supabase.storage.from('product_images').getPublicUrl(fileName);
+          finalBannerUrl = pubData.publicUrl;
+        }
+      }
+
+      // 2. Submit Merchant record
       const { error } = await supabase.from('merchants').update({
         store_name: storeName,
         description: desc,
         whatsapp_number: waNumber,
-        banner_url: banner
+        banner_url: finalBannerUrl
       }).eq('user_id', user.id);
       
       if (error) {
@@ -105,19 +144,27 @@ export default function MerchantSettingsPage() {
           </div>
 
           <div className="relative">
-            <label className="block text-xs font-bold text-gray-400 mb-2">رابط صورة بانر المتجر</label>
+            <label className="block text-xs font-bold text-gray-400 mb-2">صورة المتجر (الغلاف البانر)</label>
             <div className="relative">
               <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <ImageIcon size={18} className="text-gray-400" />
+                <Upload size={18} className="text-gray-400" />
               </div>
               <input 
-                type="url" 
-                value={banner}
-                onChange={(e) => setBanner(e.target.value)}
-                className="w-full bg-dark-elevated text-white rounded-xl py-3 pr-10 pl-4 outline-none border border-transparent focus:border-primary transition-all text-left"
+                type="file" 
+                accept="image/*"
+                onChange={(e) => setBannerFile(e.target.files[0])}
+                className="w-full bg-dark-elevated text-white rounded-xl py-3 pr-10 pl-4 outline-none border border-transparent focus:border-primary transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90 cursor-pointer text-left"
                 dir="ltr"
               />
             </div>
+            {bannerFile ? (
+              <p className="text-xs text-primary mt-2">محمل: {bannerFile.name}</p>
+            ) : banner ? (
+              <div className="mt-2 text-xs flex items-center space-x-2 space-x-reverse">
+                <span className="text-gray-400">الصورة الحالية:</span>
+                <img src={banner} className="h-10 w-16 object-cover rounded shadow-md border border-white/10" />
+              </div>
+            ) : null}
           </div>
 
           <div>
