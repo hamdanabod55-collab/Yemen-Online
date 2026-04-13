@@ -5,6 +5,29 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
+const compressImage = async (file) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800; // Optimal speed/quality ratio
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.6); // Aggressive 60% compression for 10x network speed
+      };
+    };
+  });
+};
+
 export default function AddProductPage() {
   const router = useRouter();
   const [name, setName] = useState('');
@@ -25,13 +48,14 @@ export default function AddProductPage() {
       
       // 1. Upload to Supabase Storage if an image is provided
       if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop();
+        const compressedFile = await compressImage(imageFile);
+        const fileExt = compressedFile.name.split('.').pop() || 'jpg';
         const fileName = `prod_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const supabase = createClient();
         
         const { error: uploadError } = await supabase.storage
           .from('product_images')
-          .upload(fileName, imageFile);
+          .upload(fileName, compressedFile);
           
         if (uploadError) {
           setErrorMSG('فشل رفع الصورة لتخزين Supabase. تأكد من إعدادات الرفع (Bucket).');
