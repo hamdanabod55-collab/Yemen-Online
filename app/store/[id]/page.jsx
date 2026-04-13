@@ -34,10 +34,8 @@ export default function StoreProfile({ params }) {
           name: merchantData.store_name,
           category: merchantData.description || 'متجر مسجل',
           verified: merchantData.status === 'active',
-          rating: 4.8, // Static aesthetics
-          reviews: 120, // Static aesthetics
           phone: merchantData.whatsapp_number || '',
-          cover: merchantData.banner_url || 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80',
+          cover: merchantData.banner_url || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=800&q=80',
         });
 
         // Fetch Products for this Merchant
@@ -93,24 +91,23 @@ export default function StoreProfile({ params }) {
 
         <div className="absolute bottom-0 left-0 right-0 p-4 transform translate-y-4">
           <div className="bg-dark-surface rounded-2xl p-4 shadow-xl border border-white/5 relative">
-            {/* Supabase Subscription Enforcement indicator */}
-            {store.verified && (
-              <div className="absolute -top-3 -right-2 bg-gradient-to-r from-blue-600 to-indigo-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg flex items-center">
-                <ShieldCheck size={12} className="mr-1" /> متجر موثق
-              </div>
-            )}
             
             <div className="flex justify-between items-center mb-3">
               <div>
                 <h1 className="text-xl font-bold text-white mb-1">{store.name}</h1>
                 <p className="text-xs text-gray-400">{store.category}</p>
               </div>
-              <div className="bg-dark-elevated py-1.5 px-3 rounded-xl flex flex-col items-center border border-white/5">
-                <div className="flex items-center text-secondary mb-0.5">
-                  <span className="font-bold mr-1">{store.rating}</span>
-                  <Star size={12} weight="fill" className="fill-secondary" />
+              <div className="mt-4 flex items-center space-x-4 space-x-reverse text-sm mb-2">
+                <div className="flex items-center space-x-1 space-x-reverse">
+                  <ShoppingBag size={16} className="text-gray-400" />
+                  <span className="text-gray-300 font-medium">{products.length} مجموع المنتجات</span>
                 </div>
-                <span className="text-[10px] text-gray-400">{store.reviews} تقييم</span>
+                {store.verified && (
+                  <div className="flex items-center space-x-1 space-x-reverse">
+                    <CheckCircle size={16} className="text-blue-400" />
+                    <span className="text-blue-400 font-medium">موثّق</span>
+                  </div>
+                )}
               </div>
             </div>
 
