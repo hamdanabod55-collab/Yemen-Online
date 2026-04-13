@@ -2,8 +2,10 @@
 import { useState } from 'react';
 import { Upload, Plus, AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function AddProductPage() {
+  const router = useRouter();
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [price, setPrice] = useState('');
@@ -29,7 +31,10 @@ export default function AddProductPage() {
       if (res.ok && data.success) {
         setSuccess(true);
         setName(''); setDesc(''); setPrice(''); setImage('');
-        setTimeout(() => setSuccess(false), 3000);
+        
+        // Next.js App Router aggressively caches client navigation. Bust it!
+        router.push('/merchant/products/manage');
+        router.refresh();
       } else {
         setErrorMSG(data.error || 'Failed to add product');
       }
