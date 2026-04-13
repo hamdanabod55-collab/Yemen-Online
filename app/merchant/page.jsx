@@ -57,12 +57,12 @@ export default function MerchantDashboard() {
         <div className="bg-primary/10 border border-primary/20 p-3 rounded-xl flex justify-between items-center mb-4">
           <div className="truncate flex-1" dir="ltr">
             <span className="text-xs text-primary font-mono block truncate">
-              {typeof window !== 'undefined' ? window.location.origin : 'https://yemen-online.com'}/store/{merchantObj.id}
+              {typeof window !== 'undefined' ? window.location.origin : 'https://yemen-online.com'}/store/{merchantObj.slug || merchantObj.id}
             </span>
           </div>
           <button 
             onClick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/store/${merchantObj.id}`);
+              navigator.clipboard.writeText(`${window.location.origin}/store/${merchantObj.slug || merchantObj.id}`);
               alert('تم نسخ رابط المتجر!');
             }}
             className="text-xs bg-primary text-white font-bold px-3 py-1.5 rounded-lg ml-2"
