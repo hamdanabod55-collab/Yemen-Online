@@ -1,3 +1,4 @@
+'use client';
 import { useState, useEffect } from 'react';
 import { Bell, ArrowRight, Package, ShieldCheck, Check } from 'lucide-react';
 import Link from 'next/link';
