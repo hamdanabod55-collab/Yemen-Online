@@ -1,5 +1,5 @@
 'use client';
-import { Search, MapPin, User, Bell } from 'lucide-react';
+import { Search, MapPin, User, Bell, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -19,14 +19,17 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-dark-surface border-b border-dark-elevated shadow-sm">
       <div className="flex items-center justify-between px-4 py-3">
-        {/* Marketplace Address/Location */}
-        <div className="flex items-start flex-col">
-          <span className="text-xs text-gray-400">التوصيل إلى</span>
-          <button className="flex items-center space-x-1 space-x-reverse text-sm font-bold text-white hover:text-primary transition-colors">
-            <MapPin size={16} className="text-primary" />
-            <span className="truncate max-w-[120px]">صنعاء، حدة</span>
-          </button>
-        </div>
+        {/* Logo Section */}
+        <Link href="/" className="flex items-center space-x-2 space-x-reverse min-w-0 pr-1">
+          <div className="bg-yellow-400 p-1.5 rounded-lg shadow-lg flex-shrink-0">
+            <ShoppingBag size={20} className="text-dark font-black" />
+          </div>
+          <div className="flex flex-col truncate leading-tight">
+            <span className="text-lg font-black tracking-tighter text-white">
+              Yemen<span className="text-yellow-400 tracking-normal ml-1">Online</span>
+            </span>
+          </div>
+        </Link>
 
         {/* Profile Icons */}
         <div className="flex items-center space-x-3 space-x-reverse">
