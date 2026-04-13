@@ -1,70 +1,48 @@
 'use client';
-import { createContext, useContext, useState, useEffect } from 'react';
+import { Home, ShoppingBag, MessageCircle, User } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useCart } from '@/components/CartContext';
 
-const CartContext = createContext();
+export default function BottomNav() {
+  const pathname = usePathname();
+  const { cartItems } = useCart();
 
-export function CartProvider({ children }) {
-  const [cartItems, setCartItems] = useState([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  // Load from LocalStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('yemenOnlineCart');
-    if (saved && saved !== 'undefined') {
-      try {
-        setCartItems(JSON.parse(saved));
-      } catch (e) {}
-    }
-    setIsLoaded(true);
-  }, []);
-
-  // Save to LocalStorage on updates only AFTER initial load
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('yemenOnlineCart', JSON.stringify(cartItems));
-    }
-  }, [cartItems, isLoaded]);
-
-  const addToCart = (product, storeInfo) => {
-    setCartItems(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        return prev.map(item => 
-          item.id === product.id ? { ...item, qty: item.qty + 1 } : item
-        );
-      }
-      return [...prev, { 
-        id: product.id, 
-        name: product.name, 
-        price: product.price, 
-        qty: 1, 
-        storeName: storeInfo.name, 
-        storePhone: storeInfo.phone 
-      }];
-    });
-    alert(`تمت إضافة ${product.name} إلى السلة!`);
-  };
-
-  const updateQuantity = (id, newQty) => {
-    if (newQty < 1) return;
-    setCartItems(prev => prev.map(item => item.id === id ? { ...item, qty: newQty } : item));
-  };
-
-  const removeFromCart = (id) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
-  };
-
-  const clearCart = () => setCartItems([]);
-
-  const totalUsd = cartItems.reduce((acc, item) => acc + (item.price * item.qty), 0);
+  const tabs = [
+    { id: '/', icon: Home, label: 'الرئيسية' },
+    { id: '/notifications', icon: MessageCircle, label: 'الرسائل' },
+    { id: '/cart', icon: ShoppingBag, label: 'السلة' },
+    { id: '/merchant', icon: User, label: 'لوحة التحكم' },
+  ];
 
   return (
-    <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, updateQuantity, clearCart, totalUsd }}>
-      {children}
-    </CartContext.Provider>
+    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-dark-surface border-t border-dark-elevated pb-safe z-50">
+      <div className="flex justify-between items-center px-6 py-3">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = pathname === tab.id || (tab.id !== '/' && pathname.startsWith(tab.id));
+          return (
+            <Link
+              key={tab.id}
+              href={tab.id}
+              prefetch={false}
+              className="flex flex-col items-center justify-center space-y-1 relative"
+            >
+              <div className={`p-1.5 rounded-full transition-all duration-300 relative ${isActive ? 'text-primary' : 'text-gray-400 hover:text-white'}`}>
+                <Icon size={24} />
+                {tab.id === '/cart' && cartItems?.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-primary text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full shadow-lg shadow-primary/40 animate-pulse border border-dark-surface">
+                    {cartItems.reduce((acc, item) => acc + item.qty, 0)}
+                  </span>
+                )}
+              </div>
+              <span className={`text-[10px] font-medium transition-colors ${isActive ? 'text-primary' : 'text-gray-400'}`}>
+                {tab.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
-}
-
-export function useCart() {
-  return useContext(CartContext);
 }
