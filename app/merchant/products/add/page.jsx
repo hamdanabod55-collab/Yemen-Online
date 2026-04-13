@@ -3,13 +3,14 @@ import { useState } from 'react';
 import { Upload, Plus, AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 export default function AddProductPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [price, setPrice] = useState('');
-  const [image, setImage] = useState(''); // Would typically be handled via Supabase storage upload
+  const [imageFile, setImageFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMSG, setErrorMSG] = useState('');
@@ -20,17 +21,43 @@ export default function AddProductPage() {
     setErrorMSG('');
 
     try {
+      let finalImageUrl = '';
+      
+      // 1. Upload to Supabase Storage if an image is provided
+      if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `prod_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const supabase = createClient();
+        
+        const { error: uploadError } = await supabase.storage
+          .from('product_images')
+          .upload(fileName, imageFile);
+          
+        if (uploadError) {
+          setErrorMSG('فشل رفع الصورة لتخزين Supabase. تأكد من إعدادات الرفع (Bucket).');
+          setLoading(false);
+          return;
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from('product_images')
+          .getPublicUrl(fileName);
+          
+        finalImageUrl = publicUrlData.publicUrl;
+      }
+
+      // 2. Submit product metadata to database
       const res = await fetch('/api/merchant/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description: desc, price, image })
+        body: JSON.stringify({ name, description: desc, price, image: finalImageUrl })
       });
       
       const data = await res.json();
       
       if (res.ok && data.success) {
         setSuccess(true);
-        setName(''); setDesc(''); setPrice(''); setImage('');
+        setName(''); setDesc(''); setPrice(''); setImageFile(null);
         
         // Next.js App Router aggressively caches client navigation. Bust it!
         router.push('/merchant/products/manage');
@@ -92,20 +119,23 @@ export default function AddProductPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-400 mb-2">رابط صورة المنتج (مؤقت)</label>
+            <label className="block text-xs font-bold text-gray-400 mb-2">صورة المنتج</label>
             <div className="relative">
               <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                 <Upload size={18} className="text-gray-400" />
               </div>
               <input 
-                type="url" 
-                value={image}
-                onChange={(e) => setImage(e.target.value)}
-                placeholder="https://example.com/image.jpg"
-                className="w-full bg-dark-elevated text-white rounded-xl py-3 pr-10 pl-4 outline-none border border-transparent focus:border-primary transition-all text-left"
-                dir="ltr"
+                type="file" 
+                accept="image/*"
+                onChange={(e) => setImageFile(e.target.files[0])}
+                className="w-full bg-dark-elevated text-white rounded-xl py-3 pr-10 pl-4 outline-none border border-transparent focus:border-primary transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90 cursor-pointer"
               />
             </div>
+            {imageFile && (
+              <p className="text-xs text-primary mt-2">
+                محمل: {imageFile.name}
+              </p>
+            )}
           </div>
 
           <div>
