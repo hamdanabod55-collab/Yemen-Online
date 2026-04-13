@@ -66,7 +66,7 @@ export default async function Home({ searchParams }) {
             filteredStores.map(store => (
             <Link 
               key={store.id} 
-              href={`/store/${store.id}`}
+              href={`/store/${store.slug || store.id}`}
               className={`block bg-dark-surface rounded-2xl overflow-hidden shadow-none border relative group transition-all duration-300 border-white/5 hover:border-primary/30`}
             >
               <div className="relative h-36 w-full">
