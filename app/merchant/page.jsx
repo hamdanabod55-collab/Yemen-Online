@@ -92,9 +92,9 @@ export default function MerchantDashboard() {
 
       {/* Action Buttons */}
       <div className="flex space-x-3 space-x-reverse">
-        <button className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl shadow-[0_4px_14px_0_rgba(227,27,35,0.39)] transition-transform active:scale-95 flex items-center justify-center text-sm">
+        <Link href="/merchant/products/add" className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl shadow-[0_4px_14px_0_rgba(227,27,35,0.39)] transition-transform active:scale-95 flex items-center justify-center text-sm">
           <PlusCircle size={18} className="ml-1" /> إضافة منتج
-        </button>
+        </Link>
         <button className="flex-1 bg-dark-surface border border-white/10 hover:bg-dark-elevated text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center text-sm">
           <FileText size={18} className="ml-1" /> تقارير الأداء
         </button>
