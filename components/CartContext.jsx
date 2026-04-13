@@ -5,19 +5,25 @@ const CartContext = createContext();
 
 export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // Load from LocalStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('yemenOnlineCart');
-    if (saved) {
-      setCartItems(JSON.parse(saved));
+    if (saved && saved !== 'undefined') {
+      try {
+        setCartItems(JSON.parse(saved));
+      } catch (e) {}
     }
+    setIsLoaded(true);
   }, []);
 
-  // Save to LocalStorage on updates
+  // Save to LocalStorage on updates only AFTER initial load
   useEffect(() => {
-    localStorage.setItem('yemenOnlineCart', JSON.stringify(cartItems));
-  }, [cartItems]);
+    if (isLoaded) {
+      localStorage.setItem('yemenOnlineCart', JSON.stringify(cartItems));
+    }
+  }, [cartItems, isLoaded]);
 
   const addToCart = (product, storeInfo) => {
     setCartItems(prev => {
