@@ -59,15 +59,15 @@ export default function ManageProductsPage() {
       ) : (
         <div className="space-y-4">
           {products.map(item => {
-            const currencyStr = getCurrencyDisplays(item.price);
+            const currencyStr = getCurrencyDisplays(item.price_usd || 0);
             return (
             <div key={item.id} className="bg-dark-surface p-4 rounded-2xl border border-white/5 flex items-center">
               <div className="h-16 w-16 rounded-xl overflow-hidden ml-3 relative flex-shrink-0">
-                <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                <img src={item.image_url || '/placeholder.png'} alt={item.name} className="w-full h-full object-cover" />
               </div>
               <div className="flex-1">
                 <h4 className="text-white font-bold text-sm mb-1">{item.name}</h4>
-                <p className="text-secondary font-bold text-sm mb-1">${item.price}</p>
+                <p className="text-secondary font-bold text-sm mb-1">${item.price_usd}</p>
                 <p className="text-gray-500 font-bold text-[10px]">{currencyStr.combined}</p>
               </div>
               <div className="flex flex-col space-y-2">
