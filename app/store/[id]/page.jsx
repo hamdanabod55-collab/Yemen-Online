@@ -18,11 +18,14 @@ export default function StoreProfile({ params }) {
   React.useEffect(() => {
     const fetchStoreData = async () => {
       setLoading(true);
-      // Fetch Merchant (Store)
+      // Fetch Merchant (Store) securely by ID or Slug without tripping DB type errors
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+      const queryColumn = isUUID ? 'id' : 'slug';
+
       const { data: merchantData } = await supabase
         .from('merchants')
         .select('*')
-        .eq('id', id)
+        .eq(queryColumn, id)
         .single();
       
       if (merchantData) {
