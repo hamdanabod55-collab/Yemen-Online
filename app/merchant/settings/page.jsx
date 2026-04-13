@@ -2,9 +2,11 @@
 import { useState, useEffect } from 'react';
 import { Save, Store, Phone, ArrowRight, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 export default function MerchantSettingsPage() {
+  const router = useRouter();
   const [storeName, setStoreName] = useState('');
   const [desc, setDesc] = useState('');
   const [waNumber, setWaNumber] = useState('');
@@ -44,9 +46,12 @@ export default function MerchantSettingsPage() {
       }).eq('user_id', user.id);
       
       if (error) {
-        alert('حدث خطأ أثناء الحفظ');
+        alert('حدث خطأ أثناء الحفظ. تأكد من أنك تملك الصلاحية.');
       } else {
-        alert('تم حفظ إعدادات المتجر!');
+        // Enforce cache invalidation
+        router.refresh();
+        alert('تم تحديث إعدادات المتجر بنجاح!');
+        router.push('/merchant');
       }
     }
     
