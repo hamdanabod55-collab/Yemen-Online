@@ -15,6 +15,7 @@ export default function MerchantDashboard() {
   const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [merchantObj, setMerchantObj] = useState(null);
+  const [aggStats, setAggStats] = useState({ sales: 0, today: 0, customers: 0 });
 
   React.useEffect(() => {
     const fetchStats = async () => {
@@ -23,16 +24,28 @@ export default function MerchantDashboard() {
         const { data: merchant } = await supabase.from('merchants').select('*').eq('user_id', user.id).single();
         
         let ordersData = null;
+        let mSales = 0;
+        let mToday = 0;
+        let mCustomers = new Set();
+
         if (merchant) {
           setMerchantObj(merchant);
-          const { data, error } = await supabase.from('orders').select('*').eq('merchant_id', merchant.id).order('created_at', { ascending: false }).limit(10);
-          ordersData = data || [];
-        } else {
-          // Strict block on client: no fake data ever
-          ordersData = [];
+          const { data, error } = await supabase.from('orders').select('*, users(email)').eq('merchant_id', merchant.id).order('created_at', { ascending: false });
+          if (data) {
+             ordersData = data.slice(0, 10);
+             const todayString = new Date().toDateString();
+             data.forEach(o => {
+                mSales += parseFloat(o.total_price || 0);
+                if (new Date(o.created_at).toDateString() === todayString) {
+                   mToday++;
+                }
+                if (o.customer_id) mCustomers.add(o.customer_id);
+             });
+          }
         }
 
-        setRecentOrders(ordersData);
+        setRecentOrders(ordersData || []);
+        setAggStats({ sales: mSales, today: mToday, customers: mCustomers.size });
       }
       setLoading(false);
     };
@@ -74,20 +87,33 @@ export default function MerchantDashboard() {
 
       {/* Analytics Summary */}
       <div className="grid grid-cols-2 gap-3">
-        {stats.map((stat, i) => {
-          const Icon = stat.icon;
-          return (
-            <div key={i} className={`p-4 rounded-2xl bg-dark-surface border border-white/5 ${i === 0 ? 'col-span-2' : ''}`}>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs text-gray-400 font-medium">{stat.label}</span>
-                <div className={`p-1.5 rounded-lg ${stat.bg}`}>
-                  <Icon size={16} className={stat.color} />
-                </div>
-              </div>
-              <h3 className={`font-bold ${i === 0 ? 'text-2xl' : 'text-xl'} text-white`}>{stat.value}</h3>
-            </div>
-          )
-        })}
+        <div className="p-4 rounded-2xl bg-dark-surface border border-white/5 col-span-2">
+          <div className="flex justify-between items-center mb-2">
+             <span className="text-xs text-gray-400 font-medium">إجمالي المبيعات</span>
+             <div className="p-1.5 rounded-lg bg-green-400/10">
+               <TrendingUp size={16} className="text-green-400" />
+             </div>
+          </div>
+          <h3 className="font-bold text-2xl text-white">${aggStats.sales.toFixed(2)}</h3>
+        </div>
+        <div className="p-4 rounded-2xl bg-dark-surface border border-white/5">
+          <div className="flex justify-between items-center mb-2">
+             <span className="text-xs text-gray-400 font-medium">طلبات اليوم</span>
+             <div className="p-1.5 rounded-lg bg-primary/10">
+               <Package size={16} className="text-primary" />
+             </div>
+          </div>
+          <h3 className="font-bold text-xl text-white">{aggStats.today}</h3>
+        </div>
+        <div className="p-4 rounded-2xl bg-dark-surface border border-white/5">
+          <div className="flex justify-between items-center mb-2">
+             <span className="text-xs text-gray-400 font-medium">قاعدة العملاء</span>
+             <div className="p-1.5 rounded-lg bg-blue-400/10">
+               <Users size={16} className="text-blue-400" />
+             </div>
+          </div>
+          <h3 className="font-bold text-xl text-white">{aggStats.customers}</h3>
+        </div>
       </div>
 
       {/* Action Buttons */}
@@ -111,33 +137,25 @@ export default function MerchantDashboard() {
           {recentOrders.map((order) => (
             <div key={order.id} className="p-4 flex flex-col space-y-2">
               <div className="flex justify-between items-start">
-                <div>
-                  <span className="text-[10px] text-gray-500 font-mono mb-1 block">{order.id}</span>
-                  <h4 className="text-sm font-bold text-white">{order.customer}</h4>
+                <div className="flex-1 overflow-hidden pr-2">
+                  <span className="text-[10px] text-gray-500 font-mono mb-1 block truncate">#{order.id.split('-')[0]}</span>
+                  <h4 className="text-sm font-bold text-white truncate">{order.users?.email || 'عميل مجهول'}</h4>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
-                  order.status === 'معلق' ? 'bg-secondary/20 text-secondary' : 'bg-green-500/20 text-green-500'
+                <span className={`text-[10px] font-bold px-2 py-1 flex-shrink-0 rounded-md ${
+                  order.status === 'pending' ? 'bg-secondary/20 text-secondary' : 'bg-green-500/20 text-green-500'
                 }`}>
-                  {order.status}
+                  {order.status === 'pending' ? 'معلق' : order.status}
                 </span>
               </div>
-              <p className="text-xs text-gray-400 line-clamp-1">{order.items}</p>
               <div className="flex justify-between items-center pt-2">
-                <span className="text-xs text-gray-500">{order.time}</span>
-                <span className="text-sm font-bold text-white">{order.total}</span>
-              </div>
-              
-              {/* Communication Layer Layer */}
-              <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-white/5">
-                <button className="bg-[#25D366]/10 text-[#25D366] py-1.5 rounded-lg text-xs font-bold hover:bg-[#25D366] hover:text-dark transition-colors">
-                  مراسلة العميل عبر واتساب
-                </button>
-                <button className="bg-dark-elevated text-gray-300 py-1.5 rounded-lg text-xs font-bold hover:bg-white/10 transition-colors">
-                  تحديث الحالة للطلب
-                </button>
+                <span className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString()}</span>
+                <span className="text-sm font-bold text-white">${parseFloat(order.total_price).toFixed(2)}</span>
               </div>
             </div>
           ))}
+          {recentOrders.length === 0 && (
+            <div className="p-10 text-center text-gray-500 text-xs">لا توجد طلبات حتى الآن</div>
+          )}
         </div>
       </section>
     </div>
