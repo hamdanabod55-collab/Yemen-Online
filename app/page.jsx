@@ -86,10 +86,6 @@ export default async function Home({ searchParams }) {
               <div className="p-4 relative -mt-6">
                 <div className="flex justify-between items-end mb-2">
                   <h4 className="text-white font-bold text-lg drop-shadow-md">{store.store_name}</h4>
-                  <div className="flex items-center bg-dark-elevated px-2 py-1.5 rounded-lg border border-white/5">
-                    <span className="text-xs font-bold text-white ml-1">4.5</span>
-                    <Star size={14} className="text-secondary fill-secondary" />
-                  </div>
                 </div>
                 
                 <p className="text-sm text-gray-400 mb-3 line-clamp-1">{store.description || 'متجر مسجل في النظام'}</p>
