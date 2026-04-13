@@ -26,6 +26,7 @@ export default function AdminDashboard() {
         status,
         subscription_end,
         user_id,
+        slug,
         users ( email )
       `);
       
@@ -36,6 +37,7 @@ export default function AdminDashboard() {
         owner: m.users?.email || 'N/A',
         status: m.status === 'active' ? 'Active' : 'Inactive',
         subEnd: m.subscription_end ? new Date(m.subscription_end).toISOString().split('T')[0] : 'N/A',
+        slug: m.slug,
         tier: 'Basic'
       }));
       setStores(formatted);
@@ -282,7 +284,7 @@ export default function AdminDashboard() {
               </div>
 
               <div className="flex items-center pt-1">
-                <Link href={`/store/${store.id}`} className="flex-1 bg-white/5 hover:bg-white/10 text-gray-300 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center">
+                <Link prefetch={false} href={`/store/${store.slug || store.id}`} className="flex-1 bg-white/5 hover:bg-white/10 text-gray-300 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center">
                   <Eye size={14} className="ml-1" />
                   دخول كمتفرج
                 </Link>
