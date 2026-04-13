@@ -47,9 +47,9 @@ export default function MerchantDashboard() {
           <h2 className="text-xl font-bold text-white">لوحة التحكم التاجر</h2>
           <p className="text-xs text-gray-400 mt-1">مرحباً بك، {merchantObj?.store_name || 'في لوحة تحكم التاجر'}</p>
         </div>
-        <div className="p-2 bg-dark-elevated rounded-xl border border-white/5">
+        <Link href="/merchant/settings" className="p-2 bg-dark-elevated rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
           <Settings size={20} className="text-gray-400" />
-        </div>
+        </Link>
       </div>
       
       {/* Store URL Display */}
@@ -95,9 +95,9 @@ export default function MerchantDashboard() {
         <Link href="/merchant/products/add" className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl shadow-[0_4px_14px_0_rgba(227,27,35,0.39)] transition-transform active:scale-95 flex items-center justify-center text-sm">
           <PlusCircle size={18} className="ml-1" /> إضافة منتج
         </Link>
-        <button className="flex-1 bg-dark-surface border border-white/10 hover:bg-dark-elevated text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center text-sm">
-          <FileText size={18} className="ml-1" /> تقارير الأداء
-        </button>
+        <Link href="/merchant/products/manage" className="flex-1 bg-dark-surface border border-white/10 hover:bg-dark-elevated text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center text-sm">
+          <Package size={18} className="ml-1" /> إدارة المنتجات
+        </Link>
       </div>
 
       {/* Order Management Database Hook Simulator */}
