@@ -1,41 +1,49 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { ArrowRight, Save, Instagram, AlertCircle, CheckCircle } from 'lucide-react';
+import { ArrowRight, Save, Instagram, AlertCircle, CheckCircle, Facebook, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 export default function InstagramAutoReplySettings() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const oauthCode = searchParams.get('code');
+  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncingMeta, setSyncingMeta] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   // Form State
   const [merchantId, setMerchantId] = useState(null);
+  const [userId, setUserId] = useState(null);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
   const [instaPageId, setInstaPageId] = useState('');
-  const [instaAccessToken, setInstaAccessToken] = useState('');
+  const [tokenExpirationDate, setTokenExpirationDate] = useState(null);
   const [customMessage, setCustomMessage] = useState('مرحباً، شكراً لتواصلكم مع متجرنا! للطلب يرجى زيارة الرابط التالي: {slug}');
   
   const supabase = createClient();
 
+  // Load Merchant Defaults
   useEffect(() => {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setUserId(user.id);
 
-      // Fetch merchant core settings
       const { data: merchantData } = await supabase
         .from('merchants')
-        .select('id, insta_page_id, insta_access_token, auto_reply_enabled')
+        .select('id, insta_page_id, auto_reply_enabled, insta_token_expires_at')
         .eq('user_id', user.id)
         .single();
 
       if (merchantData) {
         setMerchantId(merchantData.id);
         setInstaPageId(merchantData.insta_page_id || '');
-        setInstaAccessToken(merchantData.insta_access_token || '');
         setAutoReplyEnabled(merchantData.auto_reply_enabled || false);
+        setTokenExpirationDate(merchantData.insta_token_expires_at ? new Date(merchantData.insta_token_expires_at) : null);
 
         // Fetch custom message settings
         const { data: settingsData } = await supabase
@@ -53,53 +61,76 @@ export default function InstagramAutoReplySettings() {
     fetchData();
   }, [supabase]);
 
-  const handleToggle = async () => {
-    if (!autoReplyEnabled && !instaAccessToken.trim()) {
-      setErrorMsg('يجب عليك تحديد (Access Token) وحفظه أولاً قبل تفعيل البوت.');
+  // Execute Meta OAuth Callback Automatically
+  useEffect(() => {
+    if (oauthCode && merchantId && userId && !syncingMeta) {
+      setSyncingMeta(true);
+      
+      const processMetaHandshake = async () => {
+        try {
+          // Visually clean the dirty OAuth URL for a pristine UX
+          window.history.replaceState(null, '', '/merchant/instagram');
+          
+          const redirectUri = window.location.origin + '/merchant/instagram';
+          const res = await fetch('/api/auth/facebook', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: oauthCode, redirectUri, merchantId, userId })
+          });
+          
+          const result = await res.json();
+          if (res.ok && result.success) {
+            setInstaPageId(result.instaPageId);
+            setAutoReplyEnabled(true);
+            setSuccessMsg('تم ربط حساب انستقرام وأعمال فيسبوك وتفعيل البوت بنجاح! 🚀');
+          } else {
+            setErrorMsg(result.error || 'فشل الاتصال بخوادم ميتا. حاول مجدداً.');
+          }
+        } catch (err) {
+          setErrorMsg('فشل الإتصال بالشبكة لربط حساب انستقرام.');
+        }
+        setSyncingMeta(false);
+      };
+      
+      processMetaHandshake();
+    }
+  }, [oauthCode, merchantId, userId, syncingMeta]);
+
+  // Initiate Redirect Flow
+  const initiateFacebookLogin = () => {
+    const APP_ID = process.env.NEXT_PUBLIC_FB_APP_ID;
+    if (!APP_ID) {
+      setErrorMsg('لم تقم الإدارة بربط NEXT_PUBLIC_FB_APP_ID بعد.');
       return;
     }
-    
+    const redirectUri = window.location.origin + '/merchant/instagram';
+    const scope = 'pages_show_list,pages_messaging,instagram_basic,instagram_manage_messages';
+    window.location.href = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${APP_ID}&redirect_uri=${redirectUri}&scope=${scope}`;
+  };
+
+  const handleToggle = async () => {
+    if (!autoReplyEnabled && !instaPageId) {
+      setErrorMsg('يجب ربط حساب إنستقرام بنجاح أولاً قبل تفعيل البوت.');
+      return;
+    }
     setErrorMsg('');
+    
     const newStatus = !autoReplyEnabled;
     setAutoReplyEnabled(newStatus);
-    
-    // Save toggle instantly
     if (merchantId) {
-      await supabase
-        .from('merchants')
-        .update({ auto_reply_enabled: newStatus })
-        .eq('id', merchantId);
+      await supabase.from('merchants').update({ auto_reply_enabled: newStatus }).eq('id', merchantId);
     }
   };
 
-  const handleSave = async (e) => {
+  const handleSaveMessage = async (e) => {
     e.preventDefault();
     setSaving(true);
     setErrorMsg('');
     setSuccessMsg('');
 
-    // Validation
-    if (autoReplyEnabled && !instaAccessToken.trim()) {
-      setErrorMsg('لا يمكن تفعيل الرد التلقائي والحفظ بينما رمز التوثيق Access Token فارغ.');
-      setSaving(false);
-      return;
-    }
-
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      if (!merchantId) throw new Error('فشل التعرف على التاجر');
       
-      // Update Merchant Credentials
-      const { error: merchantError } = await supabase
-        .from('merchants')
-        .update({ 
-          insta_page_id: instaPageId,
-          insta_access_token: instaAccessToken 
-        })
-        .eq('user_id', user.id); // Strict RLS Security isolated to auth.uid()
-
-      if (merchantError) throw new Error('فشل تحديث بيانات التاجر');
-
-      // Update Custom Message (Upsert since it might not exist)
       const { error: settingsError } = await supabase
         .from('auto_reply_settings')
         .upsert({ 
@@ -110,17 +141,23 @@ export default function InstagramAutoReplySettings() {
 
       if (settingsError) throw new Error('فشل تحديث الرسالة المخصصة');
 
-      setSuccessMsg('تم حفظ بيانات بوت إنستقرام بنجاح!');
+      setSuccessMsg('تم حفظ رسالة الرد بنجاح!');
       setTimeout(() => setSuccessMsg(''), 3000);
       
     } catch (err) {
       setErrorMsg(err.message);
     }
-    
     setSaving(false);
   };
 
-  if (loading) return <div className="p-10 text-center text-gray-500">جاري تحميل إعدادات إنستقرام...</div>;
+  if (loading || syncingMeta) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 space-y-4">
+        <Loader2 size={40} className="animate-spin text-primary" />
+        <p className="text-gray-400 font-bold">{syncingMeta ? 'جاري مصافحة سيرفرات Meta وجلب صلاحيات متجرك...' : 'جاري تحميل إعدادات إنستقرام...'}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-6 pb-20">
@@ -129,99 +166,110 @@ export default function InstagramAutoReplySettings() {
           <ArrowRight size={20} className="text-white" />
         </Link>
         <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-indigo-500 flex items-center">
-          <Instagram size={24} className="ml-2 text-pink-500" /> Auto-Reply Bot
+          <Instagram size={24} className="ml-2 text-pink-500" /> Auto-Reply SaaS
         </h2>
       </div>
 
-      {/* Main Form */}
-      <form onSubmit={handleSave} className="space-y-4">
-        
-        {/* Toggle Head */}
-        <div className="bg-dark-surface p-5 rounded-2xl border border-white/5 flex items-center justify-between">
-          <div>
-             <h3 className="text-sm font-bold text-white mb-1">حالة الرد التلقائي</h3>
-             <p className="text-[10px] text-gray-400 max-w-[200px]">عند التفعيل، سيقوم النظام بالرد المباشر على عملاء إنستقرام برابط سلتهم.</p>
-          </div>
-          <button 
-             type="button"
-             onClick={handleToggle}
-             className={`w-14 h-8 flex items-center rounded-full p-1 transition-colors duration-300 ${autoReplyEnabled ? 'bg-green-500' : 'bg-dark-elevated border border-white/10'}`}
-          >
-            <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${autoReplyEnabled ? '-translate-x-6' : 'translate-x-0'}`}></div>
-          </button>
+      {errorMsg && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-xl flex items-center text-sm font-bold">
+          <AlertCircle size={18} className="ml-2 flex-shrink-0" /> {errorMsg}
         </div>
+      )}
 
-        {errorMsg && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-xl flex items-center text-sm font-bold">
-            <AlertCircle size={18} className="ml-2 flex-shrink-0" /> {errorMsg}
-          </div>
-        )}
+      {successMsg && (
+        <div className="bg-green-500/10 border border-green-500/20 text-green-500 p-3 rounded-xl flex items-center text-sm font-bold">
+          <CheckCircle size={18} className="ml-2 flex-shrink-0" /> {successMsg}
+        </div>
+      )}
 
-        {successMsg && (
-          <div className="bg-green-500/10 border border-green-500/20 text-green-500 p-3 rounded-xl flex items-center text-sm font-bold">
-            <CheckCircle size={18} className="ml-2 flex-shrink-0" /> {successMsg}
-          </div>
-        )}
+      {/* Expiration Health Diagnostic Alerts */}
+      {instaPageId && tokenExpirationDate && (
+        <>
+          {tokenExpirationDate < new Date() ? (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl font-bold flex flex-col space-y-2">
+              <div className="flex items-center">
+                 <AlertCircle size={20} className="ml-2" />
+                 <span>تحذير أمني: انتهت صلاحية الجلسة الموثوقة مع إنستقرام!</span>
+              </div>
+              <p className="text-xs font-normal mr-7">يرجى الضغط على زر "إعادة الربط والتحديث" أدناه فوراً لإعادة تفعيل البوت.</p>
+            </div>
+          ) : (tokenExpirationDate - new Date()) / (1000 * 60 * 60 * 24) < 7 ? (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 p-4 rounded-xl font-bold flex flex-col space-y-2">
+              <div className="flex items-center">
+                 <AlertCircle size={20} className="ml-2" />
+                 <span>تنبيه: اقتراب انتهاء صلاحية الجلسة الذكية</span>
+              </div>
+              <p className="text-xs font-normal mr-7">لحماية متجرك لضمان عدم توقف البوت، نرجو إعادة تسجيل الدخول لتحديث الصلاحيات بضغطة زر واحدة.</p>
+            </div>
+          ) : null}
+        </>
+      )}
 
-        <div className="bg-dark-surface p-5 rounded-2xl border border-white/5 space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-gray-400 mb-2">Instagram Page ID <span className="text-red-500">*</span></label>
-            <input 
-              required
-              type="text" 
-              value={instaPageId}
-              onChange={(e) => setInstaPageId(e.target.value)}
-              placeholder="مثال: 123456789012345"
-              className="w-full bg-dark-elevated text-white rounded-xl py-3 px-4 outline-none border border-transparent focus:border-pink-500 transition-all text-left"
-              dir="ltr"
-            />
-          </div>
+      {/* Modern 1-Click Meta Integrator UI */}
+      <div className="bg-dark-surface p-6 rounded-2xl border border-white/5 flex flex-col items-center space-y-4 text-center">
+         <div className="bg-[#1877F2]/10 p-4 rounded-full">
+            <Facebook size={32} className="text-[#1877F2]" />
+         </div>
+         <div>
+            <h3 className="text-lg font-bold text-white mb-2">الربط الذكي مع Meta</h3>
+            <p className="text-xs text-gray-400 max-w-sm">اربط صفحة فيسبوك وحساب انستقرام التابع لك لمرة واحدة بضغطة زر. السيرفر سيقوم ببرمجة وجلب بيانات متجرك وحفظها دون أي تدخل منك.</p>
+         </div>
+         
+         <button 
+           onClick={initiateFacebookLogin}
+           className="w-full max-w-xs bg-[#1877F2] hover:bg-[#1877F2]/90 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-[#1877F2]/20 flex items-center justify-center mt-2"
+         >
+           {instaPageId ? <><CheckCircle size={18} className="ml-2" /> إعادة الربط والتحديث</> : <><Facebook size={18} className="ml-2" /> تسجيل الدخول فيسبوك</>}
+         </button>
 
-          <div>
-            <label className="block text-xs font-bold text-gray-400 mb-2">Graph API Access Token <span className="text-red-500">*</span></label>
-            <textarea 
-              required
-              rows="3"
-              value={instaAccessToken}
-              onChange={(e) => setInstaAccessToken(e.target.value)}
-              placeholder="EAAGm0PX4ZCkwBA..."
-              className="w-full bg-dark-elevated text-gray-300 rounded-xl py-3 px-4 outline-none border border-transparent focus:border-pink-500 transition-all text-left font-mono text-[10px]"
-              dir="ltr"
-            ></textarea>
-            <p className="text-[10px] text-gray-500 mt-2">يجب توليد هذا الرمز من Meta for Developers مع صلاحيات `pages_messaging`.</p>
-          </div>
+         {instaPageId && (
+            <div className="mt-4 pt-4 border-t border-white/5 w-full flex justify-between items-center px-4">
+              <span className="text-sm font-bold text-gray-300">حالة تشغيل البوت الأوتوماتيكي</span>
+              <button 
+                 type="button"
+                 onClick={handleToggle}
+                 className={`w-14 h-8 flex items-center rounded-full p-1 transition-colors duration-300 ${autoReplyEnabled ? 'bg-green-500' : 'bg-dark-elevated border border-white/10'}`}
+              >
+                <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${autoReplyEnabled ? '-translate-x-6' : 'translate-x-0'}`}></div>
+              </button>
+            </div>
+         )}
+      </div>
 
-          <div>
-            <label className="block text-xs font-bold text-gray-400 mb-2">صيغة الرد التلقائي (الذكية)</label>
-            <textarea 
-              required
-              rows="4"
-              value={customMessage}
-              onChange={(e) => setCustomMessage(e.target.value)}
-              className="w-full bg-dark-elevated text-white rounded-xl py-3 px-4 outline-none border border-transparent focus:border-pink-500 transition-all"
-            ></textarea>
-            <div className="mt-2 bg-pink-500/10 border border-pink-500/20 rounded-lg p-2 flex items-start">
-               <Info size={14} className="text-pink-500 ml-1.5 mt-0.5 flex-shrink-0" />
-               <p className="text-[10px] text-pink-400/90 leading-relaxed">
-                 ملاحظة هامة: سيتم استبدال النص <code className="bg-pink-500/20 px-1 py-0.5 rounded font-mono font-bold">{'{slug}'}</code> تلقائياً برابط متجرك الفريد عند الرد على العميل بالخاص.
-               </p>
+      {instaPageId && (
+        <form onSubmit={handleSaveMessage} className="space-y-4">
+          <div className="bg-dark-surface p-5 rounded-2xl border border-white/5 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-2">صيغة الرد التلقائي</label>
+              <textarea 
+                required
+                rows="4"
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                className="w-full bg-dark-elevated text-white rounded-xl py-3 px-4 outline-none border border-transparent focus:border-pink-500 transition-all font-cairo"
+              ></textarea>
+              <div className="mt-2 bg-pink-500/10 border border-pink-500/20 rounded-lg p-2 flex items-start">
+                 <Info size={14} className="text-pink-500 ml-1.5 mt-0.5 flex-shrink-0" />
+                 <p className="text-[10px] text-pink-400/90 leading-relaxed">
+                   استخدم المتغير <code className="bg-pink-500/20 px-1 py-0.5 rounded font-mono font-bold">{'{slug}'}</code> في رسالتك، ليقوم البوت آلياً باستبداله برابط الشراء المباشر الخاص بمتجرك وتوجيه العملاء للشراء فوراً.
+                 </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button 
-          disabled={saving}
-          type="submit"
-          className="w-full bg-gradient-to-r from-pink-500 to-indigo-500 hover:opacity-90 text-white font-bold py-3.5 rounded-xl transition-all active:scale-95 flex justify-center items-center shadow-lg shadow-pink-500/20"
-        >
-          {saving ? 'جاري الحفظ...' : <><Save size={18} className="ml-2" /> حفظ إعدادات الربط</>}
-        </button>
-      </form>
+          <button 
+            disabled={saving}
+            type="submit"
+            className="w-full bg-gradient-to-r from-pink-500 to-indigo-500 hover:opacity-90 text-white font-bold py-3.5 rounded-xl transition-all active:scale-95 flex justify-center items-center shadow-lg shadow-pink-500/20"
+          >
+            {saving ? 'جاري الحفظ...' : <><Save size={18} className="ml-2" /> حفظ وحماية الإعدادات</>}
+          </button>
+        </form>
+      )}
     </div>
   );
 }
 
-// Minimal Info Icon Component to avoid large imports
 function Info({ size, className }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
