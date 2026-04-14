@@ -2,12 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase Service Client to bypass RLS for background webhook processing
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } }
-);
+// Meta requires absolute dynamic verification streams
+export const dynamic = 'force-dynamic';
 
 // 1. Zod Validation Schema for Meta Instagram Webhook Payload
 const metaWebhookSchema = z.object({
@@ -73,6 +69,13 @@ export async function POST(request) {
 
         const customerIgId = event.sender.id;
         const merchantPageId = event.recipient.id;
+
+        // Initialize Supabase Service Client inside request context
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_ROLE_KEY || 'dummy_on_build',
+          { auth: { persistSession: false } }
+        );
 
         // 4. Fetch Merchant Data from Supabase
         const { data: merchant, error: merchantError } = await supabase
