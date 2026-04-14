@@ -1,11 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { ArrowRight, Save, Instagram, AlertCircle, CheckCircle, Facebook, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-export default function InstagramAutoReplySettings() {
+function InstagramContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const oauthCode = searchParams.get('code');
@@ -267,6 +267,19 @@ export default function InstagramAutoReplySettings() {
         </form>
       )}
     </div>
+  );
+}
+
+export default function InstagramAutoReplySettings() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center p-20 space-y-4">
+        <Loader2 size={40} className="animate-spin text-primary" />
+        <p className="text-gray-400 font-bold">جاري تحميل إعدادات السحابة...</p>
+      </div>
+    }>
+      <InstagramContent />
+    </Suspense>
   );
 }
 
