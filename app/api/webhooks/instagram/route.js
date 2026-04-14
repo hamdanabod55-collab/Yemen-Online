@@ -120,6 +120,17 @@ export async function POST(request) {
         if (!response.ok) {
            const errorBody = await response.text();
            console.error(`Graph API Error for page ${merchantPageId}:`, errorBody);
+
+           // Self-healing fail-safe: Automatically disable the bot if Meta reports the OAuth Token died or was revoked
+           if (response.status === 400 || response.status === 401) {
+              if (errorBody.includes('OAuthException') || errorBody.toLowerCase().includes('expire')) {
+                 await supabase
+                    .from('merchants')
+                    .update({ auto_reply_enabled: false })
+                    .eq('id', merchant.id);
+                 console.log(`[SYS-SEC] Auto-Suspended bot for merchant ${merchant.id} due to fatal Meta Invalid Token.`);
+              }
+           }
         }
       }
     }
