@@ -24,7 +24,7 @@ export async function POST(request) {
 
     if (!tokenRes.ok || !tokenData.access_token) {
       console.error('FB Token Auth Failed:', tokenData);
-      return NextResponse.json({ error: 'فشل استخراج الرمز السري من ميتا' }, { status: 400 });
+      return NextResponse.json({ error: `[خطأ من ميتا]: ${tokenData.error?.message || 'الرمز غير صالح أو قد انتهت صلاحيته'}` }, { status: 400 });
     }
     
     let userAccessToken = tokenData.access_token;
