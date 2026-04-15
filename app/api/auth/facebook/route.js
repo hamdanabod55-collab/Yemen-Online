@@ -68,6 +68,14 @@ export async function POST(request) {
 
     const instaPageId = instaData.instagram_business_account.id;
 
+    // 3.5 Force Page to Subscribe to the App Webhooks 
+    // This is mandatory for Meta to actually start firing the 'messages' webhooks towards Vercel.
+    const subscribeUrl = `https://graph.facebook.com/v19.0/${pageId}/subscribed_apps?subscribed_fields=messages,messaging_postbacks&access_token=${pageAccessToken}`;
+    const subRes = await fetch(subscribeUrl, { method: 'POST' });
+    if (!subRes.ok) {
+       console.error('Failed to subscribe page to webhooks:', await subRes.text());
+    }
+
     // 4. Update the Supabase Database bypassing RLS specifically for this securely authorized request
     // Since we receive the UUID strictly from the secure client environment, we validate it using the Service Key internally.
     const supabaseAdmin = createClient(
