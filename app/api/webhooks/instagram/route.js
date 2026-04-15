@@ -47,6 +47,10 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const rawBody = await request.json();
+    console.log("\n\n==========================================");
+    console.log("🚨 [WEBHOOK RECEIVED FROM META] 🚨");
+    console.log(JSON.stringify(rawBody, null, 2));
+    console.log("==========================================\n\n");
     
     // 2. Validate incoming payload structurally using Zod
     const validationResult = metaWebhookSchema.safeParse(rawBody);
