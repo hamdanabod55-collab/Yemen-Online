@@ -12,8 +12,22 @@ export function CartProvider({ children }) {
     const saved = localStorage.getItem('yemenOnlineCart');
     if (saved && saved !== 'undefined') {
       try {
-        setCartItems(JSON.parse(saved));
-      } catch (e) {}
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Strictly filter out items without store_id and normalize to string
+          const validItems = parsed
+            .filter(item => item && item.store_id)
+            .map(item => ({
+              ...item,
+              store_id: String(item.store_id)
+            }));
+          
+          setCartItems(validItems);
+          console.log("Cart Items Loaded & Cleaned:", validItems);
+        }
+      } catch (e) {
+        console.error("Cart Load Error:", e);
+      }
     }
     setIsLoaded(true);
   }, []);
@@ -21,6 +35,7 @@ export function CartProvider({ children }) {
   // Save to LocalStorage on updates only AFTER initial load
   useEffect(() => {
     if (isLoaded) {
+      console.log("Saving Cart Items:", cartItems);
       localStorage.setItem('yemenOnlineCart', JSON.stringify(cartItems));
     }
   }, [cartItems, isLoaded]);
@@ -28,9 +43,12 @@ export function CartProvider({ children }) {
   const addToCart = (product, storeInfo) => {
     // Require store_id to prevent mixed/invalid orders
     if (!storeInfo || !storeInfo.id) {
+      console.error("Cart Add Error: Missing store_id in storeInfo", storeInfo);
       alert("عذراً، بيانات المتجر غير مكتملة، لا يمكن إضافة المنتج للسلة.");
       return;
     }
+
+    const normalizedStoreId = String(storeInfo.id);
 
     setCartItems(prev => {
       const existing = prev.find(item => item.id === product.id);
@@ -39,15 +57,17 @@ export function CartProvider({ children }) {
           item.id === product.id ? { ...item, qty: item.qty + 1 } : item
         );
       }
-      return [...prev, { 
+      const newItem = { 
         id: product.id, 
         name: product.name, 
         price: product.price, 
         qty: 1, 
-        store_id: storeInfo.id,
+        store_id: normalizedStoreId,
         storeName: storeInfo.name, 
         storePhone: storeInfo.phone 
-      }];
+      };
+      console.log("Added new item to cart:", newItem);
+      return [...prev, newItem];
     });
     alert(`تمت إضافة ${product.name} إلى السلة!`);
   };
