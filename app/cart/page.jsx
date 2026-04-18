@@ -12,20 +12,23 @@ export default function CartPage() {
   const groupedCart = React.useMemo(() => {
     const validItems = cartItems.filter(item => item.store_id);
     const groups = validItems.reduce((acc, item) => {
-      if (!acc[item.store_id]) {
-        acc[item.store_id] = {
-          store_id: item.store_id,
+      const gStoreId = String(item.store_id); // Normalize to string just in case
+      if (!acc[gStoreId]) {
+        acc[gStoreId] = {
+          store_id: gStoreId,
           storeName: item.storeName,
           storePhone: item.storePhone,
           items: [],
           totalUsd: 0,
         };
       }
-      acc[item.store_id].items.push(item);
-      acc[item.store_id].totalUsd += (item.price * item.qty);
+      acc[gStoreId].items.push(item);
+      acc[gStoreId].totalUsd += (item.price * item.qty);
       return acc;
     }, {});
-    return Object.values(groups);
+    const result = Object.values(groups);
+    console.log("Rendered Grouped Cart:", result);
+    return result;
   }, [cartItems]);
 
   const overallValidTotalUsd = groupedCart.reduce((sum, group) => sum + group.totalUsd, 0);
