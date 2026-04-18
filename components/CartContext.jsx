@@ -26,6 +26,12 @@ export function CartProvider({ children }) {
   }, [cartItems, isLoaded]);
 
   const addToCart = (product, storeInfo) => {
+    // Require store_id to prevent mixed/invalid orders
+    if (!storeInfo || !storeInfo.id) {
+      alert("عذراً، بيانات المتجر غير مكتملة، لا يمكن إضافة المنتج للسلة.");
+      return;
+    }
+
     setCartItems(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
@@ -38,6 +44,7 @@ export function CartProvider({ children }) {
         name: product.name, 
         price: product.price, 
         qty: 1, 
+        store_id: storeInfo.id,
         storeName: storeInfo.name, 
         storePhone: storeInfo.phone 
       }];
