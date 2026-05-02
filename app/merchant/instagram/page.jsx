@@ -2,17 +2,16 @@
 import { useState, useEffect, Suspense } from 'react';
 import { ArrowRight, Save, Instagram, AlertCircle, CheckCircle, Facebook, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 function InstagramContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const oauthCode = searchParams.get('code');
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncingMeta, setSyncingMeta] = useState(false);
+  const [manualToken, setManualToken] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -66,51 +65,37 @@ function InstagramContent() {
     fetchData();
   }, [supabase]);
 
-  // Execute Meta OAuth Callback Automatically
-  useEffect(() => {
-    if (oauthCode && merchantId && userId && !syncingMeta) {
-      setSyncingMeta(true);
-      
-      const processMetaHandshake = async () => {
-        try {
-          // Visually clean the dirty OAuth URL for a pristine UX
-          window.history.replaceState(null, '', '/merchant/instagram');
-          
-          const redirectUri = window.location.origin + '/merchant/instagram';
-          const res = await fetch('/api/auth/facebook', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: oauthCode, redirectUri, merchantId, userId })
-          });
-          
-          const result = await res.json();
-          if (res.ok && result.success) {
-            setInstaPageId(result.instaPageId);
-            setAutoReplyEnabled(true);
-            setSuccessMsg('تم ربط حساب انستقرام وأعمال فيسبوك وتفعيل البوت بنجاح! 🚀');
-          } else {
-            setErrorMsg(result.error || 'فشل الاتصال بخوادم ميتا. حاول مجدداً.');
-          }
-        } catch (err) {
-          setErrorMsg('فشل الإتصال بالشبكة لربط حساب انستقرام.');
-        }
-        setSyncingMeta(false);
-      };
-      
-      processMetaHandshake();
-    }
-  }, [oauthCode, merchantId, userId, syncingMeta]);
-
-  // Initiate Redirect Flow
-  const initiateFacebookLogin = () => {
-    const APP_ID = process.env.NEXT_PUBLIC_FB_APP_ID;
-    if (!APP_ID) {
-      setErrorMsg('لم تقم الإدارة بربط NEXT_PUBLIC_FB_APP_ID بعد.');
+  const handleManualLink = async (e) => {
+    e.preventDefault();
+    if (!manualToken) {
+      setErrorMsg('الرجاء إدخال رمز الوصول (Access Token)');
       return;
     }
-    const redirectUri = window.location.origin + '/merchant/instagram';
-    const scope = 'pages_show_list,pages_messaging,instagram_basic,instagram_manage_messages';
-    window.location.href = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${APP_ID}&redirect_uri=${redirectUri}&scope=${scope}`;
+
+    setSyncingMeta(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    try {
+      const res = await fetch('/api/auth/facebook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: manualToken, merchantId, userId })
+      });
+      
+      const result = await res.json();
+      if (res.ok && result.success) {
+        setInstaPageId(result.instaPageId);
+        setAutoReplyEnabled(true);
+        setSuccessMsg('تم ربط حساب انستقرام وأعمال فيسبوك وتفعيل البوت بنجاح! 🚀');
+        setManualToken('');
+      } else {
+        setErrorMsg(result.error || 'فشل الاتصال بخوادم ميتا. تأكد من صحة الرمز.');
+      }
+    } catch (err) {
+      setErrorMsg('فشل الإتصال بالشبكة لربط حساب انستقرام.');
+    }
+    setSyncingMeta(false);
   };
 
   const handleToggle = async () => {
@@ -210,22 +195,51 @@ function InstagramContent() {
         </>
       )}
 
-      {/* Modern 1-Click Meta Integrator UI */}
+      {/* Modern Manual Token Integrator UI */}
       <div className="bg-dark-surface p-6 rounded-2xl border border-white/5 flex flex-col items-center space-y-4 text-center">
          <div className="bg-[#1877F2]/10 p-4 rounded-full">
             <Facebook size={32} className="text-[#1877F2]" />
          </div>
          <div>
-            <h3 className="text-lg font-bold text-white mb-2">الربط الذكي مع Meta</h3>
-            <p className="text-xs text-gray-400 max-w-sm">اربط صفحة فيسبوك وحساب انستقرام التابع لك لمرة واحدة بضغطة زر. السيرفر سيقوم ببرمجة وجلب بيانات متجرك وحفظها دون أي تدخل منك.</p>
+            <h3 className="text-lg font-bold text-white mb-2">الربط المباشر مع Meta</h3>
+            <p className="text-xs text-gray-400 max-w-sm">قم باستخراج "Page Access Token" من صفحة الفيسبوك الخاصة بك أو مدير التطبيقات، والصقه هنا ليتم الربط فوراً.</p>
          </div>
          
-         <button 
-           onClick={initiateFacebookLogin}
-           className="w-full max-w-xs bg-[#1877F2] hover:bg-[#1877F2]/90 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-[#1877F2]/20 flex items-center justify-center mt-2"
-         >
-           {instaPageId ? <><CheckCircle size={18} className="ml-2" /> إعادة الربط والتحديث</> : <><Facebook size={18} className="ml-2" /> تسجيل الدخول فيسبوك</>}
-         </button>
+         {!instaPageId || (instaPageId && tokenExpirationDate && tokenExpirationDate < new Date()) ? (
+           <form onSubmit={handleManualLink} className="w-full max-w-sm mt-4 flex flex-col space-y-3">
+             <input
+               type="text"
+               placeholder="الصق رمز الوصول (Access Token) هنا"
+               required
+               value={manualToken}
+               onChange={(e) => setManualToken(e.target.value)}
+               className="w-full bg-dark-elevated text-center text-sm font-mono text-white rounded-xl py-3 px-4 outline-none border border-transparent focus:border-[#1877F2] transition-all"
+             />
+             <button 
+               disabled={syncingMeta}
+               type="submit"
+               className="w-full bg-[#1877F2] hover:bg-[#1877F2]/90 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-[#1877F2]/20 flex items-center justify-center disabled:opacity-50"
+             >
+               {syncingMeta ? 'جاري التحقق والربط...' : <><Facebook size={18} className="ml-2" /> ربط الحساب وتفعيل البوت</>}
+             </button>
+           </form>
+         ) : (
+           <div className="w-full max-w-sm mt-4 space-y-3">
+             <div className="bg-green-500/10 text-green-500 py-3 px-4 rounded-xl text-sm font-bold border border-green-500/20">
+               <CheckCircle size={18} className="inline ml-2" />
+               الحساب مرتبط بنجاح (معرّف الصفحة: {instaPageId})
+             </div>
+             <button 
+               type="button"
+               onClick={() => {
+                 setInstaPageId(''); // Clear instantly to show the form again 
+               }}
+               className="text-xs text-gray-400 hover:text-white underline w-full text-center"
+             >
+               هل تريد استخدام رمز آخر أو صفحة أخرى؟
+             </button>
+           </div>
+         )}
 
          {instaPageId && (
             <div className="mt-4 pt-4 border-t border-white/5 w-full flex justify-between items-center px-4">
